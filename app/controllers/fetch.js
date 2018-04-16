@@ -67,7 +67,18 @@ async function fetch(req, res) {
             // res.status(): 响应状态码
             // res.text(): 响应内容
         })
-        await page.goto(url)
+        page.on('framenavigated', frame => {
+            if(frame.url().trimRight('/') !== url.trimRight('/')) {
+                await browser.close()
+                reject("url changed. operation canceled.")
+            }
+        })
+        await page.goto(url, {
+            timeout: 10000,
+            waitUntil: "networkidle2"
+        }).catch(err => {
+            reject(err)
+        })
         result.html = await page.content()
         result.charset = await page.evaluate(()=>{
             return document.charset;
