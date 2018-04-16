@@ -25,7 +25,8 @@ async function fetch(req, res) {
         let result = new Result(url)
         const browser = await puppeteer.launch({
             timeout: 15000,
-            ignoreHTTPSErrors: true
+            ignoreHTTPSErrors: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
         })
         const page = await browser.newPage()
         //await page.tracing.start({path: 'trace.json', categories: ['devtools.timeline']})
