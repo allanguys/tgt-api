@@ -69,8 +69,12 @@ async function fetch(req, res) {
         })
         page.on('framenavigated', frame => {
             if(frame.url().trimRight('/') !== url.trimRight('/')) {
-                await browser.close()
-                reject("url changed. operation canceled.")
+                browser.close().then(() => {
+                    resolve("url changed. operation canceled.")
+                }, (err) => {
+                    reject(err)
+                })
+
             }
         })
         await page.goto(url, {
