@@ -10,4 +10,8 @@ router.post('/fetch', (req, res) => {
     })
 })
 
+router.get('/fetch', (req, res) => {
+    res.send('必须使用 POST 方式提交请求！')
+})
+
 module.exports = router;
