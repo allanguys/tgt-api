@@ -7,6 +7,10 @@ class Result {
         this.html = ''
         this.headers = {}
         this.requests = {}
+        this.consoles = {
+            errors: [],
+            warn
+        }
     }
     setRequest(key, val) {
         this.requests[key] = val
