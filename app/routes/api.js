@@ -53,24 +53,23 @@ router.post('/check', async (req, res) => {
             }
         }
         await writeFile(json, JSON.stringify(jsonData));
-        tgtPkg.check({
-            "config": {
-                "isbnAPI": {
-                    "host": "***REMOVED***",
-                    "url": "http://***REMOVED***/isbn_api.php?url="
+        try {
+            tgtPkg.check({
+                "config": {
+                    "isbnAPI": config.isbnConfig
+                },
+                "file": {
+                    "name": html,
+                    "charset": "utf8"
+                },
+                "request": {
+                    "name": json
                 }
-            },
-            "file": {
-                "name": html,
-                "charset": "utf8"
-            },
-            "request": {
-                "name": json
-            }
-        }, cb => {
-            console.log(cb);
-            res.json(cb.checkResult);
-        });
+            }, cb => {
+                console.log(cb);
+                res.json(cb.checkResult);
+            });
+        } catch(e) { res.json(e) }
     } catch (err) {
         //const msg = err.message || err;
         console.log(err);
