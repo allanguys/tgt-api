@@ -1,4 +1,4 @@
-const { isObject } = require('util');
+const { promisify }  = require('util');
 
 const express = require('express')
 const router = express.Router()
@@ -7,6 +7,9 @@ const path = require('path')
 const fs = require('fs')
 const tgtPkg = require('tgt-pkg')
 const crawler = require('../controllers/crawler');
+
+const writeFile = promisify(fs.writeFile);
+const readFile = promisify(fs.readFile);
 
 router.post('/fetch', (req, res) => {
     fetch(req, res).then(result => {
@@ -22,71 +25,58 @@ function isURL(str) {
     return str.length < 2083 && url.test(str);
 }
 
-router.post('/check', (req, res) => {
-    //const result = await fetch(req, res)
-    const filename = Date.now()
-    const html = path.resolve(__dirname, '../../cache/'+filename+'.html');
-    const json = path.resolve(__dirname, '../../cache/'+filename+'.json');
-    fetch(req, res).then(result => {
-        return new Promise((resolve, reject) => {
-            fs.writeFile(html, result.html, "utf8", (err) => {
-                if(err) {
-                    reject(err);
-                } else {
-                    let jsonData = {log:{
-                        ping: [],
-                        images: [],
-                        pages: [
-                            {
-                                id: result.url,
-                                isbnLink: result.url
-                            }
-                        ],
-                        nameList: "openApi"
-                    }}
-                    jsonData.charset = result.charset
-                    jsonData.requests = result.requests
-                    for(let link in jsonData.requests) {
-                        if(link.indexOf('pingfore.qq.com/pingd?dm=') > -1 && link.indexOf('com&url') > -1) {
-                            jsonData.log.ping.push(link)
-                        }
+router.post('/check', async (req, res) => {
+    try {
+        const filename = Date.now()
+        const html = path.resolve(__dirname, '../../cache/'+filename+'.html');
+        const json = path.resolve(__dirname, '../../cache/'+filename+'.json');
+        const result = await fetch(req, res);
+        await writeFile(html, result.html, "utf8");
+        let jsonData = {
+            log:{
+                ping: [],
+                images: [],
+                pages: [
+                    {
+                        id: result.url,
+                        isbnLink: result.url
                     }
-                    fs.writeFile(json, JSON.stringify(jsonData), (err) => {
-                        if(err) {
-                            reject(err)
-                        } else {
-                            resolve(jsonData)
-                        }
-                    })
+                ],
+                nameList: "openApi"
+            }
+        };
+        jsonData.charset = result.charset;
+        jsonData.requests = result.requests;
+        for(let link in jsonData.requests) {
+            if(link.indexOf('pingfore.qq.com/pingd?dm=') > -1 && link.indexOf('com&url') > -1) {
+                jsonData.log.ping.push(link)
+            }
+        }
+        await writeFile(json, JSON.stringify(jsonData));
+        tgtPkg.check({
+            "config": {
+                "isbnAPI": {
+                    "host": "***REMOVED***",
+                    "url": "http://***REMOVED***/isbn_api.php?url="
                 }
-            })
-        })
-    }).then((jsonData) => {
-        console.log(jsonData)
-        return new Promise((resolve, reject) => {
-            tgtPkg.check({
-                "config": {
-                    "isbnAPI": {
-                        "host": "***REMOVED***",
-                        "url": "http://***REMOVED***/isbn_api.php?url="
-                    }
-                },
-                "file": {
-                    "name": html,
-                    "charset": "utf8"
-                },
-                "request": {
-                    "name": json
-                }
-            }, resolve)
-        })
-    }).then((cb) => {
-        console.log(cb.checkResult)
-        res.json(cb.checkResult)
-    }).catch(err => {
-        res.json(err)
-    })
-})
+            },
+            "file": {
+                "name": html,
+                "charset": "utf8"
+            },
+            "request": {
+                "name": json
+            }
+        }, cb => {
+            console.log(cb);
+            res.json(cb.checkResult);
+        });
+    } catch (err) {
+        //const msg = err.message || err;
+        console.log(err);
+        res.send(JSON.stringify(err));
+    }
+});
 
 router.post('/crawler', (req, res) => {
     const url = req.body.url || '';
@@ -104,7 +94,7 @@ router.post('/crawler', (req, res) => {
 });
 
 router.get('/fetch', (req, res) => {
-    res.send('必须使用 POST 方式提交请求！')
-})
+    res.send('必须使用 POST 方式提交请求！');
+});
 
 module.exports = router;
