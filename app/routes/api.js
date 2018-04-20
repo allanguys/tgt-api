@@ -7,9 +7,9 @@ const path = require('path')
 const fs = require('fs')
 const tgtPkg = require('tgt-pkg')
 const crawler = require('../controllers/crawler');
-
 const writeFile = promisify(fs.writeFile);
 const readFile = promisify(fs.readFile);
+const config = require('../../config');
 
 router.post('/fetch', (req, res) => {
     fetch(req, res).then(result => {
@@ -53,26 +53,21 @@ router.post('/check', async (req, res) => {
             }
         }
         await writeFile(json, JSON.stringify(jsonData));
-        try {
-            tgtPkg.check({
-                "config": {
-                    "isbnAPI": config.isbnConfig
-                },
-                "file": {
-                    "name": html,
-                    "charset": "utf8"
-                },
-                "request": {
-                    "name": json
-                }
-            }, cb => {
-                console.log(cb);
-                res.json(cb.checkResult);
-            });
-        } catch(e) { res.json(e) }
+        tgtPkg.check({
+            "config": {
+                "isbnAPI": config.isbnConfig
+            },
+            "file": {
+                "name": html,
+                "charset": "utf8"
+            },
+            "request": {
+                "name": json
+            }
+        }, cb => {
+            res.json(cb.checkResult);
+        });
     } catch (err) {
-        //const msg = err.message || err;
-        console.log(err);
         res.send(JSON.stringify(err));
     }
 });
