@@ -76,7 +76,7 @@ router.post('/crawler', (req, res) => {
     const url = req.body.url || '';
     let options = isObject(req.body.options) ? req.body.options : {};
     if(!isURL(url)) {
-        res.json({msg: "url must be a valid full address.", data: req.body});
+        res.json({msg: "url {"+url+"} must be a valid full address.", data: req.body});
     } else {
         crawler(url, options)
             .then(result => {
