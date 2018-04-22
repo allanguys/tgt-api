@@ -1,4 +1,4 @@
-const { promisify }  = require('util');
+const { promisify, isObject }  = require('util');
 
 const express = require('express')
 const router = express.Router()
