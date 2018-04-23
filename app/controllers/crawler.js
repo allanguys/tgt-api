@@ -94,7 +94,7 @@ module.exports = async (url, options = {}) => {
         if(frame === page.mainFrame()) {
             const _url = frame.url();
             if(_url !== url && _url !== 'about:blank') {
-                if(_url.slice(0, -1) !== url && !config.redirect) {
+                if(_url.slice(0, -1) !== url && !config.followRedirect) {
                     hasError = true;
                     errMsg = `Stop follow redirec from "${url}" to "${_url}".`;
                 } else {
