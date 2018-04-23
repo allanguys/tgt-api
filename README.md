@@ -31,6 +31,7 @@ Content-Type: application/json
 ```
 
 ### Response
+
 **Header**
 
 ``` http
@@ -85,7 +86,7 @@ Connection: keep-alive
 
 ### Error Response
 
-***Header***
+**Header**
 
 ``` http
 HTTP/1.1 200 OK
@@ -120,6 +121,8 @@ Content-Type:application/json
 ```
 
 ### Response
+
+**Header**
 
 ``` http
 HTTP/1.1 200 OK

@@ -3,7 +3,7 @@
     "host": "127.0.0.1",
     "port": "3001",
     "isbnConfig": {
-        "host":"***REMOVED***",
-        "url":"http://***REMOVED***/isbn_api.php?url="
+        "host":"api.isbn.demo",
+        "url":"http://api.isbn.demo/isbn_api.php?url="
     }
 }
