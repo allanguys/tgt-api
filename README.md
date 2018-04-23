@@ -96,15 +96,6 @@ Body
 {"msg":"Stop follow redirec from \"http://tps.qq.com/\" to \"http://tps.qq.com/cp/a2080319yind/index.html\"."}
 ```
 
-### /api/fetch
-
-```
-HTTP/1.1 POST
-Content-Type:application/json
-
-{"url":"http://somedomain/somepath/somefile.ext", "loadImages":0, "loadMedias":0}
-```
-
 ### /api/check
 
 ```
