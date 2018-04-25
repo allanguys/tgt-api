@@ -1,23 +1,8 @@
 const { promisify, isObject }  = require('util');
 
-const express = require('express')
-const router = express.Router()
-const fetch = require('../controllers/fetch')
-const path = require('path')
-const fs = require('fs')
-const tgtPkg = require('tgt-pkg')
-const crawler = require('../controllers/crawler');
-const writeFile = promisify(fs.writeFile);
-const readFile = promisify(fs.readFile);
-const config = require('../../config');
-
-router.post('/fetch', (req, res) => {
-    fetch(req, res).then(result => {
-        res.json(result)
-    }).catch(err => {
-        res.json(err)
-    })
-})
+const express = require('express');
+const router = express.Router();
+const { checker, crawler } = require('../handler')
 
 function isURL(str) {
     var urlRegex = '^(?:(?:http|https)://)(?:\\S+(?::\\S*)?@)?(?:(?:(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}(?:\\.(?:[0-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))|(?:(?:[a-z\\u00a1-\\uffff0-9]+-?)*[a-z\\u00a1-\\uffff0-9]+)(?:\\.(?:[a-z\\u00a1-\\uffff0-9]+-?)*[a-z\\u00a1-\\uffff0-9]+)*(?:\\.(?:[a-z\\u00a1-\\uffff]{2,})))|localhost)(?::\\d{2,5})?(?:(/|\\?|#)[^\\s]*)?$';
@@ -26,49 +11,27 @@ function isURL(str) {
 }
 
 router.post('/check', async (req, res) => {
+    const url = req.body.url || '';
+    let options = isObject(req.body.options) ? req.body.options : {};
+    if(!isURL(url)) {
+        res.json({msg: "url {"+url+"} must be a valid full address.", data: [req.headers, req.body]});
+        return false;
+    }
+
     try {
-        const filename = Date.now()
-        const html = path.resolve(__dirname, '../../cache/'+filename+'.html');
-        const json = path.resolve(__dirname, '../../cache/'+filename+'.json');
-        const result = await fetch(req, res);
-        await writeFile(html, result.html, "utf8");
-        let jsonData = {
-            log:{
-                ping: [],
-                images: [],
-                pages: [
-                    {
-                        id: result.url,
-                        isbnLink: result.url
-                    }
-                ],
-                nameList: "openApi"
-            }
-        };
-        jsonData.charset = result.charset;
-        jsonData.requests = result.requests;
-        for(let link in jsonData.requests) {
-            if(link.indexOf('pingfore.qq.com/pingd?dm=') > -1 && link.indexOf('com&url') > -1) {
-                jsonData.log.ping.push(link)
-            }
-        }
-        await writeFile(json, JSON.stringify(jsonData));
-        tgtPkg.check({
-            "config": {
-                "isbnAPI": config.isbnConfig
-            },
-            "file": {
-                "name": html,
-                "charset": "utf8"
-            },
-            "request": {
-                "name": json
-            }
-        }, cb => {
-            res.json(cb.checkResult);
+        const fetchResult = await crawler(url, options).catch(err => {
+            res.json({msg: "Error: " + JSON.stringify(err)});
+            return false;
         });
+        const checkResult = await checker(fetchResult).catch(err => {
+            res.json({msg: "Error: " + JSON.stringify(err)});
+            return false;
+        });
+
+        res.json(checkResult);
+
     } catch (err) {
-        res.send(JSON.stringify(err));
+        res.json({msg: "Error: " + JSON.stringify(err)});
     }
 });
 
@@ -77,18 +40,13 @@ router.post('/crawler', (req, res) => {
     let options = isObject(req.body.options) ? req.body.options : {};
     if(!isURL(url)) {
         res.json({msg: "url {"+url+"} must be a valid full address.", data: [req.headers, req.body]});
-    } else {
-        crawler(url, options)
-            .then(result => {
-                res.json(result);
-            }).catch(err => {
-                res.json({ msg: err.message });
-            });
+        return false;
     }
-});
-
-router.get('/fetch', (req, res) => {
-    res.send('必须使用 POST 方式提交请求！');
+    crawler(url, options).then(result => {
+        res.json(result);
+    }).catch(err => {
+        res.json({ msg: err.message });
+    });
 });
 
 module.exports = router;

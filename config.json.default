@@ -2,8 +2,5 @@
     "chrome": false,
     "host": "127.0.0.1",
     "port": "3001",
-    "isbnConfig": {
-        "host":"api.isbn.demo",
-        "url":"http://api.isbn.demo/isbn_api.php?url="
-    }
+    "isbnApi": "http://api.isbn.demo/isbn_api.php?url="
 }
