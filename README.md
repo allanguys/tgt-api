@@ -25,7 +25,7 @@ Content-Type: application/json
         "logHtml": false,
         "followRedirect": true,
         "device":"default",
-        "media":"screen",
+        "media":"screen"
     }
 }
 ```
@@ -117,7 +117,17 @@ Content-Type:application/json
 **Body**
 
 ``` json
-{"url":"http://somedomain/somepath/somefile.ext", "loadImages":0, "loadMedias":0}
+{
+    "url": "http://somedomain/path/file.ext",
+    "options": {
+        "loadImages":false,
+        "loadMedias":false,
+        "logConsole":true,
+        "followRedirect": true,
+        "device":"default",
+        "media":"screen"
+    }
+}
 ```
 
 ### Response
