@@ -10,6 +10,6 @@ const crawler = require('./crawler');
 const checker = require('./checker');
 
 module.exports = {
-    checker,
-    crawler
-}
+  checker,
+  crawler,
+};

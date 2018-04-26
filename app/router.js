@@ -1,12 +1,13 @@
-const express = require('express')
-const router = express.Router()
+const express = require('express');
 
-const apiRouters = require('./routes/api')
-const webRouters = require('./routes/web')
+const router = express.Router();
 
-router.use('/api', apiRouters)
+const apiRouters = require('./routes/api');
+const webRouters = require('./routes/web');
 
-router.all('*', webRouters)
+router.use('/api', apiRouters);
+
+router.use(webRouters);
 
 
 module.exports = router;

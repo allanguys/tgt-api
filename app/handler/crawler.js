@@ -1,215 +1,211 @@
 const devices = require('puppeteer/DeviceDescriptors');
 const puppeteer = require('puppeteer');
 const { isString } = require('util');
-const config = require('../../config');
+const { chromePath } = require('../../config');
 const URL = require('url');
 
 const Result = require('../models/result');
 
-module.exports = async (url, options = {}) => {
-    const defaults = {
-        loadImages:false,
-        loadMedias:false,
-        logRequests: true,
-        logConsole:true,
-        logHtml: false,
-        followRedirect: true,
-        device:"default",
-        media:"screen",
+module.exports = async (startUrl, options = {}) => {
+  let defaults = {
+    loadImages: false,
+    loadMedias: false,
+    logRequests: true,
+    logConsole: false,
+    logHtml: true,
+    followRedirect: true,
+    device: 'default',
+    media: 'screen',
+  };
+  let url = startUrl;
+  const result = new Result(url);
+  defaults = Object.assign({}, defaults, options);
+  let errMsg = '';
+  let hasError = false;
 
-    };
-    const result = new Result(url);
-    const config = Object.assign({}, defaults, options);
-    let cancelFlag = false;
-    let errMsg = '';
-    let hasError = false;
-
-    if(isString(url) && url.length > 10) {
-        try {
-            let _url = URL.parse(url)
-        } catch (err) {
-            return Promise.reject('url must be a valid URI.')
-        }
-    } else {
-        return Promise.reject('url must be string and valid URI.')
+  if (isString(url) && url.length > 10) {
+    try {
+      URL.parse(url);
+    } catch (err) {
+      return Promise.reject(new Error('url must be a valid URI.'));
     }
+  } else {
+    return Promise.reject(new Error('url must be string and valid URI.'));
+  }
 
-    const launchOptions = {
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox'
-        ]
-    };
-    if(config.chromePath) {
-        launchOptions.executablePath = config.chromePath;
+  const launchOptions = {
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+    ],
+  };
+  if (chromePath) {
+    launchOptions.executablePath = chromePath;
+  }
+  const browser = await puppeteer.launch(launchOptions);
+
+  const page = await browser.newPage();
+  await page.setRequestInterception(true);
+
+  if (defaults.media && ['screen', 'print'].includes(defaults.media)) {
+    await page.emulateMedia(defaults.media);
+  }
+
+  if (defaults.device) {
+    let device = defaults.device.toLocaleLowerCase();
+    if (['ios', 'iphone'].includes(device)) {
+      defaults.device = 'iPhone X';
+    } else if (device === 'android') {
+      defaults.device = 'Nexus 7';
+    } else if (device === 'wp') {
+      defaults.device = 'Nokia Lumia 520';
     }
-    const browser = await puppeteer.launch(launchOptions);
+    device = devices[defaults.device];
 
-    const page = await browser.newPage();
-    await page.setRequestInterception(true);
-
-    if(config.media && ['screen', 'print'].includes(config.media)) {
-        await page.emulateMedia(config.media);
+    if (device) {
+      await page.emulate(device);
     }
+  }
 
-    if(config.device) {
-        let device = config.device.toLocaleLowerCase();
-        if(["ios", "iphone"].includes(device)) {
-            config.device = "iPhone X";
-        } else if(device === "android") {
-            config.device = "Nexus 7";
-        } else if(device === "wp") {
-            config.device = "Nokia Lumia 520";
-        }
-        device = devices[config.device];
-
-        if(device) {
-            await page.emulate(device);
-        }
-    }
-
-    // log console messages
-    if(config.logConsole) {
-        page.on('console', consoleMessage => {
-            result.addConsole(consoleMessage.type(), consoleMessage.text());
-        });
-    }
-
-    // log dom ready time
-    page.on('domcontentloaded', () => {
-        result.setTimer('domContentLoaded', Date.now());
+  // log console messages
+  if (defaults.logConsole) {
+    page.on('console', (consoleMessage) => {
+      result.addConsole(consoleMessage.type(), consoleMessage.text());
     });
+  }
 
-    page.on('error', err => {
-        hasError = true;
-        errMsg = `Page error. ${err.message}`;
-    });
+  // log dom ready time
+  page.on('domcontentloaded', () => {
+    result.setTimer('domContentLoaded', Date.now());
+  });
 
-    page.on('pageerror', err => {
-        result.addError(err.message);
-    });
+  page.on('error', (err) => {
+    hasError = true;
+    errMsg = `Page error. ${err.message}`;
+  });
 
-    // check and log redirect
-    page.on('framenavigated', frame => {
-        if(frame === page.mainFrame()) {
-            const _url = frame.url();
-            if(_url !== url && _url !== 'about:blank') {
-                if(_url.slice(0, -1) !== url && !config.followRedirect) {
-                    hasError = true;
-                    errMsg = `Stop follow redirec from "${url}" to "${_url}".`;
-                } else {
-                    result.clear();
-                    result.addRedirect(_url);
-                    url = _url;
-                    result.setTimer('navigated',Date.now());
-                }
-            } else {
-                result.setTimer('navigated',Date.now());
-            }
-        }
-    });
+  page.on('pageerror', (err) => {
+    result.addError(err.message);
+  });
 
-    page.on('response', res => {
-        if(res.url() === url && !res.ok()) {
-            hasError = true;
-            errMsg = `Main Request Error (${res.status()}).`
-        }
-    });
-
-    page.on('load', () => {
-        result.setTimer('load', Date.now());
-    });
-
-    page.on('request', req => {
-        if(hasError) {
-            req.abort();
+  // check and log redirect
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) {
+      const toUrl = frame.url();
+      if (toUrl !== url && toUrl !== 'about:blank') {
+        if (toUrl.slice(0, -1) !== url && !defaults.followRedirect) {
+          hasError = true;
+          errMsg = `Stop follow redirec from "${url}" to "${toUrl}".`;
         } else {
-            const type = req.resourceType();
-            if(req.url() === url) {
-                result.setTimer('request', Date.now());
-            }
-            if(config.logRequests) {
-                result.setRequest(req.url(), '100');
-            }
-            if(type === 'image' && !config.loadImages) {
-                if(config.logRequests) {
-                    result.setRequest(req.url(), 'Aborted');
-                }
-                req.abort('aborted');
-            } else if(type === 'media' && !config.loadMedias) {
-                if(config.logRequests) {
-                    result.setRequest(req.url(), 'Aborted');
-                }
-                req.abort('aborted');
-            } else {
-                req.continue();
-            }
+          result.clear();
+          result.addRedirect(toUrl);
+          url = toUrl;
+          result.setTimer('navigated', Date.now());
         }
-    });
-
-    page.on('requestfinished', async req => {
-        if(req.url() === url) {
-            result.setTimer('requestfinished', Date.now());
-            if(req.response().ok() === false) {
-                cancelFlag = true;
-                errMsg = `Request Failed. [ ${url}: ${req.response().status()}`;
-            } else {
-                result.setHeaders(req.response().headers());
-                const contentType = req.response().headers().contentType || '';
-                const match = contentType.match(/charset=([a-z0-9_\-]+)/i);
-                if(match && match.length > 2) {
-                    result.charset = match[1];
-                }
-            }
-        }
-        if(config.logRequests) {
-            result.setRequest(req.url(), req.response().status());
-        }
-    });
-
-    page.on('requestfailed', async req => {
-        if(req.url() === url) {
-            hasError = true;
-            errMsg = `Request failed.`
-            result.setTimer('requestfailed', Date.now());
-        }
-        if(req.response()) {
-            result.setRequest(req.url(), req.response().status());
-        }
-    });
-
-    result.setTimer('start', Date.now());
-    const res = await page.goto(url, {
-        timeout: 15000,
-        waitUntil: 'networkidle2'
-    });
-
-    if(result.charset === '' && res.ok()) {
-        result.charset = await page.evaluate(() => {
-            let meta = document.querySelector('meta[charset]');
-            if(meta) {
-                return meta.getAttribute('charset') || '';
-            } else {
-                meta = document.querySelector('meta[http-equiv=content-type]');
-                if(meta) {
-                    const contentType = meta.getAttribute('content') || '';
-                    const match = contentType.match(/charset=([a-z0-9_\-]+)/i);
-                    return match && match.length > 2 ? match[1] : '';
-                }
-            }
-            return '';
-        });
+      } else {
+        result.setTimer('navigated', Date.now());
+      }
     }
-    if(!config.noHtml) {
-        result.html = await page.content();
+  });
+
+  page.on('response', (res) => {
+    if (res.url() === url && !res.ok()) {
+      hasError = true;
+      errMsg = `Main Request Error (${res.status()}).`;
     }
+  });
 
-    result.url = page.url();
-    await browser.close();
+  page.on('load', () => {
+    result.setTimer('load', Date.now());
+  });
 
-    if(hasError) {
-        throw new Error(errMsg);
+  page.on('request', (req) => {
+    if (hasError) {
+      req.abort();
     } else {
-        return Promise.resolve(result);
+      const type = req.resourceType();
+      if (req.url() === url) {
+        result.setTimer('request', Date.now());
+      }
+      if (defaults.logRequests) {
+        result.setRequest(req.url(), '100');
+      }
+      if (type === 'image' && !defaults.loadImages) {
+        if (defaults.logRequests) {
+          result.setRequest(req.url(), 'Aborted');
+        }
+        req.abort('aborted');
+      } else if (type === 'media' && !defaults.loadMedias) {
+        if (defaults.logRequests) {
+          result.setRequest(req.url(), 'Aborted');
+        }
+        req.abort('aborted');
+      } else {
+        req.continue();
+      }
     }
+  });
+
+  page.on('requestfinished', async (req) => {
+    if (req.url() === url) {
+      result.setTimer('requestfinished', Date.now());
+      if (req.response().ok() === false) {
+        hasError = true;
+        errMsg = `Request Failed. [ ${url}: ${req.response().status()}`;
+      } else {
+        result.setHeaders(req.response().headers());
+        const contentType = req.response().headers().contentType || '';
+        const match = contentType.match(/charset=([a-z0-9_-]+)/i);
+        if (match && match.length > 2) {
+          [, result.charset] = match;
+        }
+      }
+    }
+    if (defaults.logRequests) {
+      result.setRequest(req.url(), req.response().status());
+    }
+  });
+
+  page.on('requestfailed', async (req) => {
+    if (req.url() === url) {
+      hasError = true;
+      errMsg = 'Request failed.';
+      result.setTimer('requestfailed', Date.now());
+    }
+    if (req.response()) {
+      result.setRequest(req.url(), req.response().status());
+    }
+  });
+
+  result.setTimer('start', Date.now());
+  const res = await page.goto(url, {
+    timeout: 15000,
+    waitUntil: 'networkidle2',
+  });
+
+  if (result.charset === '' && res.ok()) {
+    result.charset = await page.evaluate(() => {
+      /*  global document */
+      let meta = document.querySelector('meta[charset]');
+      if (meta) {
+        return meta.getAttribute('charset') || '';
+      }
+      meta = document.querySelector('meta[http-equiv=content-type]');
+      if (meta) {
+        const contentType = meta.getAttribute('content') || '';
+        const match = contentType.match(/charset=([a-z0-9_-]+)/i);
+        return match && match.length > 2 ? match[1] : '';
+      }
+
+      return '';
+    });
+  }
+  if (defaults.logHtml) {
+    result.html = await page.content();
+  }
+
+  result.url = page.url();
+  await browser.close();
+
+  return hasError ? Promise.reject(new Error(errMsg)) : Promise.resolve(result);
 };
