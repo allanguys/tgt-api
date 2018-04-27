@@ -1,15 +1,15 @@
 const { proCheck } = require('tgt-pkg');
 const globalConfig = require('../../config');
 
-function checkPing(pings) {
+/* function checkPing(pings) {
   const tcss = [];
   Object.keys(pings).forEach((r) => {
-    if (r.indexOf('//pingfore.qq.com/pingd?dm') > 0) {
+    if (r.indexOf('//pingfore.qq.com/pingd?dm') > 0 && r.indexOf('hot&url=') === -1) {
       tcss.push(r);
     }
   });
   return tcss;
-}
+} */
 
 /**
  *
@@ -31,19 +31,18 @@ const checker = async (fetchResult) => {
     const { list, pageStandard, ignore } = checkResult;
     const size = list.length;
     const newList = [];
-    if (pageStandard === 'true' && ignore !== 'all') {
-      const tcss = checkPing(fetchResult.requests);
-      const pingResult = {
-        name: '点击流',
-        error_id: 1001,
-        error_info: tcss.length ? '' : '未检测到点击流上报，请检查页面中的统计脚本及相关代码',
-        pass_info: tcss.length ? `点击流已上报，URL为：${tcss.join(', ')}` : '',
+    if (pageStandard === 'true' && ignore !== 'all' && ignore.indexOf('charset') < 0) {
+      const charsetResult = {
+        name: '编码',
+        error_id: 2004,
+        error_info: fetchResult.charset ? '' : '响应头信息与页面中均未指定页面编码，可能会造成页面显示乱码。',
+        pass_info: fetchResult.charset ? `检测到页面的编码声明为：${fetchResult.charset}` : '',
       };
       for (let i = 0; i < size; i += 1) {
         // eslint-disable-camelcase
-        const { name, error_info } = list[i]; // eslint-disable-line camelcase
-        if (name === '点击流' && !error_info) { // eslint-disable-line camelcase
-          newList.push(pingResult);
+        const { name, error_id } = list[i]; // eslint-disable-line camelcase
+        if (name === '编码' || error_id === 2004) { // eslint-disable-line camelcase
+          newList.push(charsetResult);
         } else {
           newList.push(list[i]);
         }

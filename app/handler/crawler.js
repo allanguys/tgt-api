@@ -92,6 +92,7 @@ module.exports = async (startUrl, options = {}) => {
   page.on('framenavigated', (frame) => {
     if (frame === page.mainFrame()) {
       const toUrl = frame.url();
+      if (toUrl.indexOf('/comm-htdocs/milo_mobile/login.html') > 0) return;
       if (toUrl !== url && toUrl !== 'about:blank') {
         if (toUrl.slice(0, -1) !== url && !defaults.followRedirect) {
           hasError = true;
@@ -109,9 +110,13 @@ module.exports = async (startUrl, options = {}) => {
   });
 
   page.on('response', (res) => {
-    if (res.url() === url && !res.ok()) {
-      hasError = true;
-      errMsg = `Main Request Error (${res.status()}).`;
+    if (res.url() === url && res.headers()) {
+      // hasError = true;
+      // errMsg = `Main Request Error (${res.status()}).`;
+      result.setHeaders(res.headers());
+      const contentType = res.headers()['content-type'] || '';
+      const match = contentType.match(/charset=([a-zA-Z0-9_-]+)/i);
+      result.charset = (match && match.length >= 2) ? match[1] : '';
     }
   });
 
@@ -120,8 +125,12 @@ module.exports = async (startUrl, options = {}) => {
   });
 
   page.on('request', (req) => {
-    if (hasError) {
-      req.abort();
+    if (req.url().indexOf('//login.game.qq.com/comm-cgi-bin/login') > 0 || req.url().indexOf('/comm-htdocs/milo_mobile/login.html') > 0) {
+      req.respond({
+        status: '200',
+        contentType: 'text/plain',
+        body: '',
+      });
     } else {
       const type = req.resourceType();
       if (req.url() === url) {
@@ -147,29 +156,26 @@ module.exports = async (startUrl, options = {}) => {
   });
 
   page.on('requestfinished', async (req) => {
-    if (req.url() === url) {
-      result.setTimer('requestfinished', Date.now());
-      if (req.response().ok() === false) {
-        hasError = true;
-        errMsg = `Request Failed. [ ${url}: ${req.response().status()}`;
-      } else {
+    try {
+      if (req.url() === url) {
+        result.setTimer('requestfinished', Date.now());
         result.setHeaders(req.response().headers());
-        const contentType = req.response().headers().contentType || '';
-        const match = contentType.match(/charset=([a-z0-9_-]+)/i);
-        if (match && match.length > 2) {
-          [, result.charset] = match;
-        }
+        const contentType = req.response().headers()['content-type'] || '';
+        const match = contentType.match(/charset=([a-zA-Z0-9_-]+)/i);
+        result.charset = (match && match.length >= 2) ? match[1] : '';
       }
-    }
-    if (defaults.logRequests) {
-      result.setRequest(req.url(), req.response().status());
+      if (defaults.logRequests) {
+        result.setRequest(req.url(), req.response().status());
+      }
+    } catch (err) {
+      throw (err);
     }
   });
 
   page.on('requestfailed', async (req) => {
-    if (req.url() === url) {
+    if (req.url() === url && req.failure().errorText !== 'net::ERR_ABORTED') {
       hasError = true;
-      errMsg = 'Request failed.';
+      errMsg = `Request failed. [ ${req.url()}: ${req.failure().errorText} ]`;
       result.setTimer('requestfailed', Date.now());
     }
     if (req.response()) {
@@ -178,33 +184,20 @@ module.exports = async (startUrl, options = {}) => {
   });
 
   result.setTimer('start', Date.now());
-  const res = await page.goto(url, {
+  await page.goto(url, {
     timeout: 15000,
     waitUntil: 'networkidle2',
   });
-
-  if (result.charset === '' && res.ok()) {
-    result.charset = await page.evaluate(() => {
-      /*  global document */
-      let meta = document.querySelector('meta[charset]');
-      if (meta) {
-        return meta.getAttribute('charset') || '';
-      }
-      meta = document.querySelector('meta[http-equiv=content-type]');
-      if (meta) {
-        const contentType = meta.getAttribute('content') || '';
-        const match = contentType.match(/charset=([a-z0-9_-]+)/i);
-        return match && match.length > 2 ? match[1] : '';
-      }
-
-      return '';
-    });
-  }
+  const html = await page.content();
   if (defaults.logHtml) {
-    result.html = await page.content();
+    result.html = html;
+  }
+  if (result.charset === '') {
+    const match = html.match(/<meta[^>]+charset=["']?([a-zA-Z0-9_-]+)['";]*>/i);
+    result.charset = (match && match.length >= 2) ? match[1] : '';
   }
 
-  result.url = page.url();
+  result.url = url;
   await browser.close();
 
   return hasError ? Promise.reject(new Error(errMsg)) : Promise.resolve(result);
