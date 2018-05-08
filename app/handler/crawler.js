@@ -6,7 +6,7 @@ const URL = require('url');
 
 const Result = require('../models/result');
 
-module.exports = async (startUrl, options = {}) => {
+async function crawler(startUrl, options = {}) {
   let defaults = {
     loadImages: false,
     loadMedias: false,
@@ -92,7 +92,9 @@ module.exports = async (startUrl, options = {}) => {
   page.on('framenavigated', (frame) => {
     if (frame === page.mainFrame()) {
       const toUrl = frame.url();
+      // skip login redirect
       if (toUrl.indexOf('/comm-htdocs/milo_mobile/login.html') > 0) return;
+
       if (toUrl !== url && toUrl !== 'about:blank') {
         if (toUrl.slice(0, -1) !== url && !defaults.followRedirect) {
           hasError = true;
@@ -125,7 +127,9 @@ module.exports = async (startUrl, options = {}) => {
   });
 
   page.on('request', (req) => {
-    if (req.url().indexOf('//login.game.qq.com/comm-cgi-bin/login') > 0 || req.url().indexOf('/comm-htdocs/milo_mobile/login.html') > 0) {
+    // Stop login redirect
+    if (req.url().indexOf('//login.game.qq.com/comm-cgi-bin/login') > 0 ||
+      req.url().indexOf('/comm-htdocs/milo_mobile/login.html') > 0) {
       req.respond({
         status: '200',
         contentType: 'text/plain',
@@ -201,4 +205,40 @@ module.exports = async (startUrl, options = {}) => {
   await browser.close();
 
   return hasError ? Promise.reject(new Error(errMsg)) : Promise.resolve(result);
+}
+
+const retryCrawler = async (url, defaults = {}) => {
+  let isMobile = false;
+  const options = defaults;
+
+  if (options.device) {
+    let device = options.device.toLocaleLowerCase();
+    if (['ios', 'iphone'].includes(device)) {
+      device = 'iPhone X';
+    } else if (device === 'android') {
+      device = 'Nexus 7';
+    } else if (device === 'wp') {
+      device = 'Nokia Lumia 520';
+    }
+    device = devices[device];
+
+    if (device) {
+      ({ isMobile } = device.viewport);
+    }
+  }
+
+  try {
+    return await crawler(url, options);
+  } catch (err) {
+    const e = err.message || err;
+    if (e.indexOf('Stop follow redirec') >= 0) {
+      options.device = isMobile ? 'default' : 'iPhone X';
+      return crawler(url, options)
+        .then(result => result)
+        .catch((e2) => { const msg = e2.message || e2; throw new Error(msg); });
+    }
+    throw new Error(e);
+  }
 };
+
+module.exports = retryCrawler;

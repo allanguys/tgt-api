@@ -26,7 +26,8 @@ const checker = async (fetchResult) => {
     json: fetchResult,
   };
 
-  return proCheck(checkData).then(({ checkResult }) => {
+  try {
+    const { checkResult } = await proCheck(checkData);
     let result = checkResult;
     const { list, pageStandard, ignore } = checkResult;
     const size = list.length;
@@ -50,8 +51,8 @@ const checker = async (fetchResult) => {
       result = Object.assign(checkResult, { list: newList });
     }
 
-    return Promise.resolve(result);
-  }).catch((err) => {
+    return result;
+  } catch (err) {
     // eslint-disable-next-line
     console.error(err);
     const errType = typeof err;
@@ -63,8 +64,8 @@ const checker = async (fetchResult) => {
       msg = err.message || err.toString();
     }
 
-    return Promise.reject(new Error(msg));
-  });
+    throw new Error(msg);
+  }
 };
 
 /**

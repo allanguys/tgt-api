@@ -1,5 +1,4 @@
 const { isObject } = require('util');
-
 const express = require('express');
 
 const router = express.Router();
@@ -16,26 +15,29 @@ router.post('/check', async (req, res) => {
   const options = isObject(req.body.options) ? req.body.options : {};
   if (!isURL(url)) {
     res.json({ msg: `url {${url}} must be a valid full address.`, data: [req.headers, req.body] });
-  }
-
-  try {
-    const fetchResult = await crawler(url, options).catch(err => res.json({ msg: `Error: ${JSON.stringify(err)}` }));
-    const checkResult = await checker(fetchResult).catch(err => res.json({ msg: `Error: ${JSON.stringify(err)}` }));
-
-    res.json(checkResult);
-  } catch (err) {
-    res.json({ msg: `Error: ${JSON.stringify(err)}` });
+  } else {
+    try {
+      const fetchResult = await crawler(url, options).catch((err) => { throw err; });
+      const checkResult = await checker(fetchResult);
+      res.json(checkResult);
+    } catch (err) {
+      res.json({ msg: `Error: ${JSON.stringify(err)}` });
+    }
   }
 });
 
-router.post('/crawler', (req, res) => {
+router.post('/crawler', async (req, res) => {
   const url = req.body.url || '';
   const options = isObject(req.body.options) ? req.body.options : {};
   if (!isURL(url)) {
     res.json({ msg: `url {${url}} must be a valid full address.`, data: [req.headers, req.body] });
   }
-  crawler(url, options).then(result => res.json(result))
-    .catch(err => res.json({ msg: err.message }));
+  try {
+    const fetchResult = await crawler(url, options);
+    return res.json(fetchResult);
+  } catch (err) {
+    return res.json({ msg: err.message });
+  }
 });
 
 module.exports = router;

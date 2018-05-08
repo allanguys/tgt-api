@@ -1,6 +1,6 @@
 {
   "name": "tgt-api",
-  "version": "0.1.5",
+  "version": "0.2.1",
   "description": "A Puppeteer API.",
   "homepage": "http://api.devfeed.cn",
   "bugs": {
@@ -27,6 +27,6 @@
     "express": "^4.16.0",
     "morgan": "^1.9.0",
     "puppeteer": "^1.3.0",
-    "tgt-pkg": "^1.5.4"
+    "tgt-pkg": "^1.6.0"
   }
 }
