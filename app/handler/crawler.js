@@ -45,6 +45,7 @@ async function crawler(startUrl, options = {}) {
 
   // try {
   const browser = await puppeteer.launch(launchOptions);
+  result.browser = await browser.version();
 
   const page = await browser.newPage();
   await page.setRequestInterception(true);
@@ -111,7 +112,7 @@ async function crawler(startUrl, options = {}) {
           result.clear();
           result.addRedirect(toUrl);
           url = toUrl;
-          result.setTimer('navigated', Date.now());
+          // result.setTimer('navigated', Date.now());
         }
       } else {
         result.setTimer('navigated', Date.now());
@@ -197,8 +198,8 @@ async function crawler(startUrl, options = {}) {
 
   result.setTimer('start', Date.now());
   await page.goto(url, {
-    timeout: 15000,
-    waitUntil: 'networkidle2',
+    timeout: 10000,
+    waitUntil: 'networkidle0',
   });
   const html = await page.content();
   if (defaults.logHtml) {
@@ -210,6 +211,7 @@ async function crawler(startUrl, options = {}) {
   }
 
   result.url = url;
+  result.userAgent = await page.evaluate(() => Promise.resolve(window.navigator.userAgent));
   await browser.close();
   // } catch (err) {
   //  errMsg = err.message || err;

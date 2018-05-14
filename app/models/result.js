@@ -12,6 +12,8 @@ class Result {
       start: new Date(this.start),
     };
     this.url = url;
+    this.browser = '';
+    this.userAgent = '';
   }
 
   /**
@@ -60,6 +62,9 @@ class Result {
     this.consoles = {};
     this.headers = {};
     this.requests = {};
+    this.errors = [];
+    this.charset = '';
+    this.start = Date.now();
   }
 }
 
