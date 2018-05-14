@@ -24,6 +24,9 @@ router.post('/check', async (req, res) => {
         res.json(fetchResult);
       } else {
         const checkResult = await checker(fetchResult);
+        if (options.withFetchResult) {
+          checkResult.fetchResult = fetchResult;
+        }
         res.json(checkResult);
       }
     } catch (err) {

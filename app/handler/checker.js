@@ -27,7 +27,6 @@ const checker = async (fetchResult) => {
   };
   try {
     const result = await proCheck(checkData);
-    result.checkResult.fetchResult = fetchResult;
     return result.checkResult;
   } catch (err) {
     // eslint-disable-next-line
