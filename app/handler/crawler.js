@@ -1,7 +1,7 @@
 const devices = require('puppeteer/DeviceDescriptors');
 const puppeteer = require('puppeteer');
 const { isString } = require('util');
-const { chromePath } = require('../../config');
+const { chrome } = require('../../config');
 const URL = require('url');
 
 const Result = require('../models/result');
@@ -39,8 +39,8 @@ async function crawler(startUrl, options = {}) {
       '--disable-setuid-sandbox',
     ],
   };
-  if (chromePath) {
-    launchOptions.executablePath = chromePath;
+  if (chrome) {
+    launchOptions.executablePath = chrome;
   }
 
   // try {
