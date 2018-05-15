@@ -1,3 +1,4 @@
+/* global window */
 const devices = require('puppeteer/DeviceDescriptors');
 const puppeteer = require('puppeteer');
 const { isString } = require('util');
@@ -5,6 +6,59 @@ const { chrome } = require('../../config');
 const URL = require('url');
 
 const Result = require('../models/result');
+
+const pcDevice = {
+  name: 'default',
+  userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.170 Safari/537.36',
+  viewport: {
+    width: 1400,
+    height: 900,
+    deviceScaleFactor: 1,
+    isMobile: false,
+    hasTouch: false,
+    isLandscape: true,
+  },
+};
+
+function isValidUrl(url) {
+  if (isString(url) && url.length > 10) {
+    try {
+      const parsedUrl = URL.parse(url, false, true);
+      if (parsedUrl.host) {
+        return true;
+      }
+    } catch (err) {
+      return false;
+    }
+  }
+  return false;
+}
+
+function checkDevice(defaults) {
+  let isMobile = false;
+  let deviceName = 'default';
+  let device = pcDevice;
+  if (defaults.device) {
+    deviceName = defaults.device;
+    if (['ios', 'iphone'].includes(deviceName.toLocaleLowerCase())) {
+      deviceName = 'iPhone X';
+    } else if (deviceName === 'android') {
+      deviceName = 'Nexus 7';
+    } else if (['wp', 'windows phone'].includes(deviceName.toLocaleLowerCase())) {
+      deviceName = 'Nokia Lumia 520';
+    }
+    device = devices[deviceName] || false;
+
+    if (device) {
+      ({ isMobile } = device.viewport);
+    } else {
+      device = pcDevice;
+    }
+  }
+
+  console.log(isMobile);
+  return { isMobile, device };
+}
 
 async function crawler(startUrl, options = {}) {
   let defaults = {
@@ -22,15 +76,10 @@ async function crawler(startUrl, options = {}) {
   defaults = Object.assign({}, defaults, options);
   let errMsg = '';
   let hasError = false;
+  let retried = false;
 
-  if (isString(url) && url.length > 10) {
-    try {
-      URL.parse(url);
-    } catch (err) {
-      return Promise.reject(new Error('url must be a valid URI.'));
-    }
-  } else {
-    return Promise.reject(new Error('url must be string and valid URI.'));
+  if (!isValidUrl(url)) {
+    return Promise.reject(new Error('url must be a valid URI.'));
   }
 
   const launchOptions = {
@@ -39,6 +88,7 @@ async function crawler(startUrl, options = {}) {
       '--disable-setuid-sandbox',
     ],
   };
+
   if (chrome) {
     launchOptions.executablePath = chrome;
   }
@@ -54,21 +104,9 @@ async function crawler(startUrl, options = {}) {
     await page.emulateMedia(defaults.media);
   }
 
-  if (defaults.device) {
-    let device = defaults.device.toLocaleLowerCase();
-    if (['ios', 'iphone'].includes(device)) {
-      defaults.device = 'iPhone X';
-    } else if (device === 'android') {
-      defaults.device = 'Nexus 7';
-    } else if (device === 'wp') {
-      defaults.device = 'Nokia Lumia 520';
-    }
-    device = devices[defaults.device];
+  let { isMobile, device } = checkDevice(defaults);
 
-    if (device) {
-      await page.emulate(device);
-    }
-  }
+  await page.emulate(device);
 
   // log console messages
   if (defaults.logConsole) {
@@ -98,21 +136,33 @@ async function crawler(startUrl, options = {}) {
   });
 
   // check and log redirect
-  page.on('framenavigated', (frame) => {
+  page.on('framenavigated', async (frame) => {
     if (frame === page.mainFrame()) {
       const toUrl = frame.url();
-      // skip login redirect
-      if (toUrl.indexOf('/comm-htdocs/milo_mobile/login.html') > 0) return;
-
       if (toUrl !== url && toUrl !== 'about:blank') {
-        if (toUrl.slice(0, -1) !== url && !defaults.followRedirect) {
+        if (!defaults.followRedirect) {
+          if (!retried) {
+            // change device and retry
+            result.clear();
+            result.redirects = [url];
+            device = isMobile ? pcDevice : devices['iPhone X'];
+            console.warn('retied with', device.userAgent);
+            isMobile = !isMobile;
+            retried = true;
+            return Promise.all([
+              page.emulate(device),
+              page.goto(url, {
+                timeout: 10000,
+                waitUntil: 'networkidle0',
+              }),
+            ]);
+          }
           hasError = true;
           errMsg = `Stop follow redirec from "${url}" to "${toUrl}".`;
         } else {
           result.clear();
           result.addRedirect(toUrl);
           url = toUrl;
-          // result.setTimer('navigated', Date.now());
         }
       } else {
         result.setTimer('navigated', Date.now());
@@ -213,46 +263,8 @@ async function crawler(startUrl, options = {}) {
   result.url = url;
   result.userAgent = await page.evaluate(() => Promise.resolve(window.navigator.userAgent));
   await browser.close();
-  // } catch (err) {
-  //  errMsg = err.message || err;
-  //  hasError = true;
-  // }
 
   return hasError ? Promise.reject(new Error(errMsg)) : Promise.resolve(result);
 }
 
-const retryCrawler = async (url, defaults = {}) => {
-  let isMobile = false;
-  const options = defaults;
-
-  if (options.device) {
-    let device = options.device.toLocaleLowerCase();
-    if (['ios', 'iphone'].includes(device)) {
-      device = 'iPhone X';
-    } else if (device === 'android') {
-      device = 'Nexus 7';
-    } else if (device === 'wp') {
-      device = 'Nokia Lumia 520';
-    }
-    device = devices[device];
-
-    if (device) {
-      ({ isMobile } = device.viewport);
-    }
-  }
-
-  try {
-    return await crawler(url, options);
-  } catch (err) {
-    const e = err.message || err;
-    if (e.indexOf('Stop follow redirec') >= 0) {
-      options.device = isMobile ? 'default' : 'iPhone X';
-      return crawler(url, options)
-        .then(result => result)
-        .catch((e2) => { const msg = e2.message || e2; throw new Error(msg); });
-    }
-    throw new Error(e);
-  }
-};
-
-module.exports = retryCrawler;
+module.exports = crawler;
