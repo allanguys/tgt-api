@@ -42,7 +42,8 @@ router.post('/crawler', async (req, res) => {
   if (!isURL(url)) {
     res.json({ msg: `url {${url}} must be a valid full address.`, data: [req.headers, req.body] });
   }
-  if (url.split('/').lenth < 4) {
+  const urlParts = url.split('/');
+  if (urlParts.length < 4) {
     url += '/';
   }
   try {

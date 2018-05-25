@@ -3,10 +3,9 @@ const logger = require('morgan');
 const router = require('./app/router');
 const config = require('./config');
 
-
 const app = express();
 app.disable('x-powered-by');
-app.use(logger('tiny'));
+app.use(logger('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(`${__dirname}/static`, { immutable: true, maxAge: '1d' }));
