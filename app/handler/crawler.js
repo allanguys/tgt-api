@@ -1,4 +1,5 @@
 /* global window */
+/* eslint no-console:0 */
 const devices = require('puppeteer/DeviceDescriptors');
 const puppeteer = require('puppeteer');
 const { isString } = require('util');
@@ -56,7 +57,6 @@ function checkDevice(defaults) {
     }
   }
 
-  console.log(isMobile);
   return { isMobile, device };
 }
 
@@ -80,6 +80,11 @@ async function crawler(startUrl, options = {}) {
 
   if (!isValidUrl(url)) {
     return Promise.reject(new Error('url must be a valid URI.'));
+  }
+
+  const urlParts = url.split('/');
+  if (urlParts.length < 4) {
+    url += '/';
   }
 
   const launchOptions = {
@@ -168,6 +173,7 @@ async function crawler(startUrl, options = {}) {
         result.setTimer('navigated', Date.now());
       }
     }
+    return Promise.resolve();
   });
 
   page.on('response', (res) => {
