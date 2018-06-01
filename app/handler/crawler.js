@@ -88,7 +88,10 @@ async function crawler(startUrl, options = {}) {
   }
 
   const launchOptions = {
+    timeout: 5000,
+    ignoreHTTPSErrors: true,
     args: [
+      '--disable-gpu',
       '--no-sandbox',
       '--disable-setuid-sandbox',
     ],
@@ -104,6 +107,21 @@ async function crawler(startUrl, options = {}) {
 
   const page = await browser.newPage();
   await page.setRequestInterception(true);
+
+  function handleClose(msg) {
+    console.log(msg);
+    page.close();
+    browser.close();
+    process.exit(1);
+  }
+
+  process.on('uncaughtException', () => {
+    handleClose('Crashed');
+  });
+
+  process.on('uncaughtRejection', () => {
+    handleClose('Crashed');
+  });
 
   if (defaults.media && ['screen', 'print'].includes(defaults.media)) {
     await page.emulateMedia(defaults.media);
@@ -158,7 +176,7 @@ async function crawler(startUrl, options = {}) {
               page.emulate(device),
               page.goto(url, {
                 timeout: 10000,
-                waitUntil: 'networkidle0',
+                waitUntil: ['networkidle2', 'load'],
               }),
             ]);
           }
@@ -268,7 +286,8 @@ async function crawler(startUrl, options = {}) {
 
   result.url = url;
   result.userAgent = await page.evaluate(() => Promise.resolve(window.navigator.userAgent));
-  await browser.close();
+
+  setTimeout(handleClose, 1000);
 
   return hasError ? Promise.reject(new Error(errMsg)) : Promise.resolve(result);
 }
