@@ -60,11 +60,6 @@ function checkDevice(defaults) {
   return { isMobile, device };
 }
 
-process.on('unhandledRejection', (reason, p) => {
-  console.log('未处理的 rejection：', p, '原因：', reason);
-  throw new Error(reason);
-});
-
 async function crawler(startUrl, options = {}) {
   let defaults = {
     loadImages: false,

@@ -11,6 +11,10 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.static(`${__dirname}/static`, { immutable: true, maxAge: '1d' }));
 app.use(router);
 
+process.on('unhandledRejection', (reason, p) => {
+  // eslint-disable-next-line
+  console.error('未处理的 rejection：', p, '原因：', reason);
+});
 
 const port = process.env.PORT || config.port;
 const host = process.env.HOST || config.host;
