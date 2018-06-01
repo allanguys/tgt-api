@@ -110,9 +110,10 @@ async function crawler(startUrl, options = {}) {
 
   function handleClose(msg) {
     console.log(msg);
+    const code = !msg ? 0 : 1;
     page.close();
     browser.close();
-    process.exit(1);
+    process.exit(code);
   }
 
   process.on('uncaughtException', () => {
