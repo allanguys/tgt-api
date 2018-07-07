@@ -17,7 +17,7 @@ module.exports = {
   deploy: {
     production: {
       user: 'node',
-      host: ['jdkvm', 'qc3kvm', 'ks3c'],
+      host: ['jdkvm', 'qc3kvm', 'xrkvm'],
       ref: 'origin/master',
       repo: 'https://github.com/krwu/tgt-api.git',
       path: '/home/node/tgt-api',
