@@ -21,7 +21,7 @@ module.exports = {
       ref: 'origin/master',
       repo: 'https://github.com/krwu/tgt-api.git',
       path: '/home/node/tgt-api',
-      'post-deploy': 'yarn install --prod && ln -sfv ../shared/config.json config.json && pm2 startOrRestart ecosystem.config.js --env production && pm2 save',
+      'post-deploy': 'source ~/.bash_profile && yarn install --prod && ln -sfv ../shared/config.json config.json && pm2 startOrRestart ecosystem.config.js --env production && pm2 save',
     },
     //    dev : {
     //      user : 'node',
