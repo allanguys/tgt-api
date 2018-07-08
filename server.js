@@ -1,3 +1,4 @@
+const os = require('os');
 const express = require('express');
 const logger = require('morgan');
 const router = require('./app/router');
@@ -9,6 +10,10 @@ app.use(logger('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(`${__dirname}/static`, { immutable: true, maxAge: '1d' }));
+app.use((req, res, next) => {
+  res.set('X-Hit-Backend', os.hostname);
+  next();
+});
 app.use(router);
 
 process.on('unhandledRejection', (reason, p) => {
