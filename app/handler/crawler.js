@@ -227,11 +227,16 @@ async function crawler(startUrl, options = {}) {
     page.on('requestfinished', async (req) => {
       try {
         if (req.url() === url) {
-          result.setTimer('requestfinished', Date.now());
-          result.setHeaders(req.response().headers());
-          const contentType = req.response().headers()['content-type'] || '';
-          const match = contentType.match(/charset=([a-zA-Z0-9_-]+)/i);
-          result.charset = (match && match.length >= 2) ? match[1] : '';
+          if (req.response() && req.response().status() && req.response().status() === 404) {
+            hasError = true;
+            errMsg = `Page not found. [ ${req.url()}: ${req.response().status()} ]`;
+          } else {
+            result.setTimer('requestfinished', Date.now());
+            result.setHeaders(req.response().headers());
+            const contentType = req.response().headers()['content-type'] || '';
+            const match = contentType.match(/charset=([a-zA-Z0-9_-]+)/i);
+            result.charset = (match && match.length >= 2) ? match[1] : '';
+          }
         }
         if (defaults.logRequests) {
           result.setRequest(req.url(), req.response().status());
