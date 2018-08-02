@@ -37,6 +37,7 @@ router.post('/check', async (req, res) => {
 });
 
 router.post('/crawler', async (req, res) => {
+  let retried = false;
   const url = req.body.url || '';
   const options = isObject(req.body.options) ? req.body.options : {};
   if (!isURL(url)) {
@@ -46,7 +47,17 @@ router.post('/crawler', async (req, res) => {
     const fetchResult = await crawler(url, options);
     return res.json(fetchResult);
   } catch (err) {
-    return res.json({ msg: err.message });
+    if (err.message.indexOf('Stop follow redirec') >= 0 && retried === false) {
+      options.device = "iphone";
+      try {
+        const retryFetchResult = await crawler(url, options);
+        return res.json(retryFetchResult);
+      } catch (err) {
+        return res.json({ msg: err.message });
+      }
+    } else {
+      return res.json({ msg: err.message });
+    }
   }
 });
 

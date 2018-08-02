@@ -76,7 +76,6 @@ async function crawler(startUrl, options = {}) {
   defaults = Object.assign({}, defaults, options);
   let errMsg = '';
   let hasError = false;
-  let retried = false;
 
   if (!isValidUrl(url)) {
     return Promise.reject(new Error('url must be a valid URI.'));
@@ -141,27 +140,11 @@ async function crawler(startUrl, options = {}) {
     });
 
     // check and log redirect
-    page.on('framenavigated', async (frame) => {
+    /* page.on('framenavigated', frame => {
       if (frame === page.mainFrame()) {
         const toUrl = frame.url();
         if (toUrl !== url && toUrl !== 'about:blank') {
           if (!defaults.followRedirect) {
-            if (!retried) {
-              // change device and retry
-              result.clear();
-              result.redirects = [url];
-              device = isMobile ? pcDevice : devices['iPhone X'];
-              console.warn('retied with', device.userAgent);
-              isMobile = !isMobile;
-              retried = true;
-              return Promise.all([
-                page.emulate(device),
-                page.goto(url, {
-                  timeout: 15000,
-                  waitUntil: 'networkidle2',
-                }),
-              ]);
-            }
             hasError = true;
             errMsg = `Stop follow redirec from "${url}" to "${toUrl}".`;
           } else {
@@ -173,8 +156,7 @@ async function crawler(startUrl, options = {}) {
           result.setTimer('navigated', Date.now());
         }
       }
-      return Promise.resolve();
-    });
+    }); */
 
     page.on('response', (res) => {
       if (res.url() === url && res.headers()) {
@@ -192,14 +174,8 @@ async function crawler(startUrl, options = {}) {
     });
 
     page.on('request', (req) => {
-      // Stop login redirect
-      if (req.url().indexOf('//login.game.qq.com/comm-cgi-bin/login') > 0 ||
-        req.url().indexOf('/comm-htdocs/milo_mobile/login.html') > 0) {
-        req.respond({
-          status: '200',
-          contentType: 'text/plain',
-          body: '',
-        });
+      if (req.isNavigationRequest() && req.url() !== url && !defaults.followRedirect) {
+        req.abort('aborted');
       } else {
         const type = req.resourceType();
         if (req.url() === url) {
