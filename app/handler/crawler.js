@@ -174,8 +174,9 @@ async function crawler(startUrl, options = {}) {
     });
 
     page.on('request', (req) => {
-      if (req.isNavigationRequest() && req.url() !== url && !defaults.followRedirect) {
-        req.abort('aborted');
+      if (!defaults.followRedirect && req.url() !== url && req.resourceType === 'document' && req.isNavigationRequest()) {
+        console.log(req.redirectChain());
+        return req.abort();
       } else {
         const type = req.resourceType();
         if (req.url() === url) {

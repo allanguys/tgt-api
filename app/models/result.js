@@ -29,20 +29,36 @@ class Result {
   addError(errMessage) {
     this.errors.push(errMessage);
   }
+
+  addRedirect(url) {
+    this.redirects.push(url);
+  }
+
   getHeader(key) {
     return this.headers[key] || null;
   }
+
+  ignoreRequest(url) {
+    if (url.indexOf('//btrace.video.qq.com/') > 0) {
+      return true;
+    }
+    if (url.indexOf('//pingfore.qq.com/pingd?') > 0 && url.indexOf('.hot&url=') > 0) {
+      return true;
+    }
+    return false;
+  }
+
   setHeader(key, val) {
     this.headers[key] = val;
   }
   setHeaders(headers) {
     this.headers = headers;
   }
-  addRedirect(url) {
-    this.redirects.push(url);
-  }
+
   setRequest(url, status) {
-    this.requests[url] = status;
+    if (!this.ignoreRequest(url)) {
+      this.requests[url] = status;
+    }
   }
   /**
      *
