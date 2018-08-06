@@ -12,52 +12,60 @@ function isURL(str) {
   return str.length < 2083 && url.test(str);
 }
 
+async function getFetchResult(url, options) {
+  try {
+    const fetchResult = await crawler(url, options);
+    return fetchResult;
+  } catch (err) {
+    console.log(err.message);
+    if (err.message.indexOf('Stop follow redirect') >= 0 && options.retried) {
+      return { msg: err.message };
+    } else {
+      options.device = "iphone";
+      options.retried = true;
+      console.log('Retried');
+      return await getFetchResult(url, options);
+    }
+  }
+}
+
 router.post('/check', async (req, res) => {
   const url = req.body.url || '';
   const options = isObject(req.body.options) ? req.body.options : {};
   if (!isURL(url)) {
-    res.json({ msg: `url {${url}} must be a valid full address.`, data: [req.headers, req.body] });
+    return res.json({ msg: `url {${url}} must be a valid full address.`, data: [req.headers, req.body] });
   } else {
     try {
-      const fetchResult = await crawler(url, options);
+      const fetchResult = await getFetchResult(url, options);
       if (Object.keys(fetchResult).indexOf('msg') >= 0) {
-        res.json(fetchResult);
+        return res.json(fetchResult);
       } else {
         const checkResult = await checker(fetchResult);
         if (options.withFetchResult) {
           checkResult.fetchResult = fetchResult;
         }
-        res.json(checkResult);
+        return res.json(checkResult);
       }
     } catch (err) {
       errMsg = err.message || err;
-      res.json({ msg: `Error: ${errMsg}` });
+      return res.json({ msg: `Error: ${errMsg}` });
     }
   }
 });
 
 router.post('/crawler', async (req, res) => {
-  let retried = false;
   const url = req.body.url || '';
   const options = isObject(req.body.options) ? req.body.options : {};
+
   if (!isURL(url)) {
-    res.json({ msg: `url {${url}} must be a valid full address.`, data: [req.headers, req.body] });
+    return res.json({ msg: `url {${url}} must be a valid full address.`, data: [req.headers, req.body] });
   }
   try {
-    const fetchResult = await crawler(url, options);
+    const fetchResult = await getFetchResult(url, options);
     return res.json(fetchResult);
   } catch (err) {
-    if (err.message.indexOf('Stop follow redirec') >= 0 && retried === false) {
-      options.device = "iphone";
-      try {
-        const retryFetchResult = await crawler(url, options);
-        return res.json(retryFetchResult);
-      } catch (err) {
-        return res.json({ msg: err.message });
-      }
-    } else {
-      return res.json({ msg: err.message });
-    }
+    errMsg = err.message || err;
+    return res.json({ msg: `Error: ${errMsg}` });
   }
 });
 

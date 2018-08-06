@@ -140,13 +140,13 @@ async function crawler(startUrl, options = {}) {
     });
 
     // check and log redirect
-    /* page.on('framenavigated', frame => {
+    page.on('framenavigated', frame => {
       if (frame === page.mainFrame()) {
         const toUrl = frame.url();
-        if (toUrl !== url && toUrl !== 'about:blank') {
+        if (toUrl !== url && toUrl.indexOf('http') === 0) {
           if (!defaults.followRedirect) {
             hasError = true;
-            errMsg = `Stop follow redirec from "${url}" to "${toUrl}".`;
+            errMsg = `Stop follow redirect from "${url}" to "${toUrl}".`;
           } else {
             result.clear();
             result.addRedirect(toUrl);
@@ -156,12 +156,10 @@ async function crawler(startUrl, options = {}) {
           result.setTimer('navigated', Date.now());
         }
       }
-    }); */
+    });
 
-    page.on('response', (res) => {
+    page.on('response', async (res) => {
       if (res.url() === url && res.headers()) {
-        // hasError = true;
-        // errMsg = `Main Request Error (${res.status()}).`;
         result.setHeaders(res.headers());
         const contentType = res.headers()['content-type'] || '';
         const match = contentType.match(/charset=([a-zA-Z0-9_-]+)/i);
@@ -174,30 +172,25 @@ async function crawler(startUrl, options = {}) {
     });
 
     page.on('request', (req) => {
-      if (!defaults.followRedirect && req.url() !== url && req.resourceType === 'document' && req.isNavigationRequest()) {
-        console.log(req.redirectChain());
-        return req.abort();
-      } else {
-        const type = req.resourceType();
-        if (req.url() === url) {
-          result.setTimer('request', Date.now());
-        }
+      const type = req.resourceType();
+      if (req.url() === url) {
+        result.setTimer('request', Date.now());
+      }
+      if (defaults.logRequests) {
+        result.setRequest(req.url(), '100');
+      }
+      if (type === 'image' && !defaults.loadImages) {
         if (defaults.logRequests) {
-          result.setRequest(req.url(), '100');
+          result.setRequest(req.url(), 'Aborted');
         }
-        if (type === 'image' && !defaults.loadImages) {
-          if (defaults.logRequests) {
-            result.setRequest(req.url(), 'Aborted');
-          }
-          req.abort('aborted');
-        } else if (type === 'media' && !defaults.loadMedias) {
-          if (defaults.logRequests) {
-            result.setRequest(req.url(), 'Aborted');
-          }
-          req.abort('aborted');
-        } else {
-          req.continue();
+        req.abort('aborted');
+      } else if (type === 'media' && !defaults.loadMedias) {
+        if (defaults.logRequests) {
+          result.setRequest(req.url(), 'Aborted');
         }
+        req.abort('aborted');
+      } else {
+        req.continue();
       }
     });
 
